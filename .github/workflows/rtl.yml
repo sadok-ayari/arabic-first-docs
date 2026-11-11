@@ -1,0 +1,34 @@
+name: rtl gate
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install
+        run: pip install -r requirements.txt
+      - name: Unit tests
+        run: python3 -m unittest -v
+      - name: Build the example and verify the RTL properties
+        run: python3 arabic_first_docs.py build examples/report.json /tmp/report.docx
+      - name: A plain document must fail the check
+        run: |
+          python3 - <<'PY'
+          from docx import Document
+          doc = Document()
+          doc.add_paragraph("نص عربي بلا ضبط للاتجاه.")
+          doc.save("/tmp/plain.docx")
+          PY
+          if python3 arabic_first_docs.py check /tmp/plain.docx; then
+            echo "the gate passed a document with no direction set"; exit 1
+          fi
+      - name: The repair must make that document pass
+        run: |
+          python3 arabic_first_docs.py fix /tmp/plain.docx /tmp/fixed.docx
